@@ -50,13 +50,13 @@ def read_excel(file_path):
 
 
 # message event handler
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
+@bot.command()
+async def give_roles(ctx):
+    if ctx.author == bot.user:
         return
 
-    if message.attachments:
-        for attachment in message.attachments:
+    if ctx.message.attachments:
+        for attachment in ctx.message.attachments:
             if attachment.filename.endswith((".xlsx", ".csv")):
                 os.makedirs(temp_dir, exist_ok=True)
                 file_path = os.path.join(temp_dir, attachment.filename)
@@ -65,13 +65,14 @@ async def on_message(message):
                 data_objects = read_excel(file_path)
 
                 if data_objects:
+                    print("giving roles...")
                     for data_object in data_objects:
                         name = data_object["name"]
-                        await message.channel.send(f"Name: {name}")
+                        await ctx.send(f"Name: {name}")
+                        
+                    print("giving roles finished")
 
                 os.remove(file_path)
-
-    await bot.process_commands(message)
 
 
 # on start event handler
