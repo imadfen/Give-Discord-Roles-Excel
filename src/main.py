@@ -3,6 +3,7 @@ from discord.ext import commands
 import os
 import pandas as pd
 from dotenv import load_dotenv
+import sys
 
 load_dotenv()
 
@@ -17,6 +18,7 @@ intents = discord.Intents.default()
 intents.typing = False
 intents.presences = False
 intents.message_content = True
+intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -48,10 +50,30 @@ def read_excel(file_path):
         print(str(e))
         return None
 
+def get_not_found_excel(data):
+    df = pd.DataFrame(data)
+
+    excel_file_name = "notFoundUsers.xlsx"
+    excel_file = os.path.join(temp_dir, excel_file_name)
+    df.to_excel(excel_file, index=False, engine="openpyxl")
+
+    with open(excel_file, 'rb') as file:
+        file_data = discord.File(file, filename=excel_file_name)
+        return {
+            "file": file,
+            "discord_file": file_data,
+            "excel_file": excel_file
+            }
+
+def print_progress(progress):
+    sys.stdout.write("\r" + " " * 80)
+    sys.stdout.write(f"\r{progress}")
+    sys.stdout.flush()
+
 
 # message event handler
 @bot.command()
-async def give_roles(ctx):
+async def give_roles(ctx, role_name: str):
     if ctx.author == bot.user:
         return
 
@@ -65,12 +87,52 @@ async def give_roles(ctx):
                 data_objects = read_excel(file_path)
 
                 if data_objects:
+                    role_name = role_name.replace("-", " ")
+                    role = discord.utils.get(ctx.guild.roles, name=role_name)
+                    if role is None:
+                        print("role does not exist")
+                        return
+
                     print("giving roles...")
-                    for data_object in data_objects:
-                        name = data_object["name"]
-                        await ctx.send(f"Name: {name}")
+                    await ctx.channel.send(f"Giving roles started")
+                    notFoundList = []
+                    for index, data_object in enumerate(data_objects):
+                        print_progress(f"{round(100 * ((index + 1) / len(data_objects)), 1)}% - {data_object['name']}")    
                         
-                    print("giving roles finished")
+                        identifier = data_object["discord id"]
+                        user = discord.utils.get(ctx.guild.members, name=identifier)
+                        
+                        if user is None:
+                            user = discord.utils.get(ctx.guild.members, id=identifier)
+
+                        if user is None:
+                            user = discord.utils.get(ctx.guild.members, mention=identifier)
+                        
+                        if user is None and "#" in identifier:
+                            identifier = identifier.split("#")[0]
+                            user = discord.utils.get(ctx.guild.members, name=identifier)
+
+                            if user is None:
+                                user = discord.utils.get(ctx.guild.members, id=identifier)
+
+                            if user is None:
+                                user = discord.utils.get(ctx.guild.members, mention=identifier)
+
+                        if user is None:
+                            notFoundList.append(data_object)
+                            continue
+
+                        await user.add_roles(role)
+
+                    print("\nGiving roles finished")
+                    if len(notFoundList) != 0:
+                        notFoundUsersExcel = get_not_found_excel(notFoundList)
+                        await ctx.channel.send(f"Giving roles finished\n{len(notFoundList)} users not found, they are provided in the attached file.", file=notFoundUsersExcel["discord_file"])
+                        notFoundUsersExcel["file"].close()
+                        os.remove(notFoundUsersExcel["excel_file"])
+
+                    else:
+                        await ctx.channel.send("Giving roles finished\nAll the users found!")
 
                 os.remove(file_path)
 
@@ -85,7 +147,7 @@ async def on_ready():
     startup_channel = bot.get_channel(startup_channel_id)
 
     if startup_channel:
-        await startup_channel.send("Bot is now online and ready to process files!")
+        await startup_channel.send("Hey, I'm ready!")
 
 
 # =================== main ===================
