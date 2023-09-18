@@ -20,7 +20,7 @@ intents.presences = False
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="brainthon!", intents=intents)
 
 
 # ============== functions =================
@@ -36,10 +36,10 @@ def read_excel(file_path):
             )
 
         df.columns = df.columns.str.lower()
-        required_columns = ["name", "team", "discord id"]
+        required_columns = ["discord id"]
         if not all(column in df.columns for column in required_columns):
             raise ValueError(
-                "The required columns 'name', 'team', and 'discord id' are missing in the file."
+                "The required columns 'discord id' are missing in the file."
             )
 
         data_objects = df.to_dict(orient="records")
@@ -97,32 +97,36 @@ async def give_roles(ctx, role_name: str):
                     await ctx.channel.send(f"Giving roles started")
                     notFoundList = []
                     for index, data_object in enumerate(data_objects):
-                        print_progress(f"{round(100 * ((index + 1) / len(data_objects)), 1)}% - {data_object['name']}")    
-                        
-                        identifier = data_object["discord id"]
-                        user = discord.utils.get(ctx.guild.members, name=identifier)
-                        
-                        if user is None:
-                            user = discord.utils.get(ctx.guild.members, id=identifier)
-
-                        if user is None:
-                            user = discord.utils.get(ctx.guild.members, mention=identifier)
-                        
-                        if user is None and "#" in identifier:
-                            identifier = identifier.split("#")[0]
+                        try:
+                            pass
+                            print_progress(f"{round(100 * ((index + 1) / len(data_objects)), 1)}% - {data_object['name']}")    
+                            
+                            identifier = data_object["discord id"]
                             user = discord.utils.get(ctx.guild.members, name=identifier)
-
+                            
                             if user is None:
                                 user = discord.utils.get(ctx.guild.members, id=identifier)
 
                             if user is None:
                                 user = discord.utils.get(ctx.guild.members, mention=identifier)
+                            
+                            if user is None and "#" in identifier:
+                                identifier = identifier.split("#")[0]
+                                user = discord.utils.get(ctx.guild.members, name=identifier)
 
-                        if user is None:
-                            notFoundList.append(data_object)
-                            continue
+                                if user is None:
+                                    user = discord.utils.get(ctx.guild.members, id=identifier)
 
-                        await user.add_roles(role)
+                                if user is None:
+                                    user = discord.utils.get(ctx.guild.members, mention=identifier)
+
+                            if user is None:
+                                notFoundList.append(data_object)
+                                continue
+
+                            await user.add_roles(role)
+                        except Exception as e:
+                            print(e)
 
                     print("\nGiving roles finished")
                     if len(notFoundList) != 0:
@@ -142,12 +146,6 @@ async def give_roles(ctx, role_name: str):
 async def on_ready():
     print(f"Logged in as {bot.user.name} ({bot.user.id})")
     print("----------------------------------------------")
-
-    startup_channel_id = 776406395770765314
-    startup_channel = bot.get_channel(startup_channel_id)
-
-    if startup_channel:
-        await startup_channel.send("Hey, I'm ready!")
 
 
 # =================== main ===================
